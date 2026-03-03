@@ -26,6 +26,22 @@ export function hasLivePaneWindow(paneId: string): boolean {
 	return true;
 }
 
+export function hasOtherLivePaneWindow(
+	paneId: string,
+	windowToExclude?: BrowserWindow | null,
+): boolean {
+	const window = paneWindows.get(paneId);
+	if (!window) return false;
+	if (window.isDestroyed()) {
+		paneWindows.delete(paneId);
+		return false;
+	}
+	if (windowToExclude && window.id === windowToExclude.id) {
+		return false;
+	}
+	return true;
+}
+
 export function openPaneWindow({
 	paneId,
 	paneName,

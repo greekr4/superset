@@ -144,6 +144,7 @@ export async function MainWindow() {
 		setIpcHandler(
 			createIPCHandler({
 				router: createAppRouter(getWindow),
+				createContext: async ({ event }) => ({ event }),
 				windows: [window],
 			}),
 		);

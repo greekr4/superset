@@ -1,9 +1,8 @@
 import fs from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
-import type { BrowserWindow } from "electron";
-import { dialog } from "electron";
-import { hasLivePaneWindow, openPaneWindow } from "main/windows/pane";
+import { BrowserWindow, dialog } from "electron";
+import { hasOtherLivePaneWindow, openPaneWindow } from "main/windows/pane";
 import { z } from "zod";
 import { publicProcedure, router } from "..";
 
@@ -53,8 +52,13 @@ export const createWindowRouter = (getWindow: () => BrowserWindow | null) => {
 					paneId: z.string().min(1),
 				}),
 			)
-			.query(({ input }) => {
-				return { hasLiveWindow: hasLivePaneWindow(input.paneId) };
+			.query(({ ctx, input }) => {
+				const callerWindow = ctx.event
+					? BrowserWindow.fromWebContents(ctx.event.sender)
+					: null;
+				return {
+					hasLiveWindow: hasOtherLivePaneWindow(input.paneId, callerWindow),
+				};
 			}),
 
 		isMaximized: publicProcedure.query(() => {
