@@ -13,6 +13,7 @@ export type SettingsSection =
 	| "keyboard"
 	| "behavior"
 	| "agent"
+	| "git"
 	| "terminal"
 	| "integrations"
 	| "billing"
