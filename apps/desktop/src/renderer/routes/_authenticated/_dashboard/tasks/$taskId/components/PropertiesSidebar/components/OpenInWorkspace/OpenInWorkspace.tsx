@@ -1,4 +1,4 @@
-import { buildAgentTaskPrompt } from "@superset/shared/agent-command";
+import type { AgentType } from "@superset/shared/agent-command";
 import {
 	type AgentLaunchRequest,
 	STARTABLE_AGENT_LABELS,
@@ -20,7 +20,7 @@ import {
 	SelectValue,
 } from "@superset/ui/select";
 import { toast } from "@superset/ui/sonner";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { HiArrowRight, HiChevronDown } from "react-icons/hi2";
 import {
 	getPresetIcon,
@@ -30,8 +30,13 @@ import { launchAgentSession } from "renderer/lib/agent-session-orchestrator";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useCreateWorkspace } from "renderer/react-query/workspaces";
 import { ProjectThumbnail } from "renderer/screens/main/components/WorkspaceSidebar/ProjectSection/ProjectThumbnail";
+import {
+	buildPromptCommandFromAgentPreset,
+	DEFAULT_AGENT_TASK_PROMPT_TEMPLATE,
+	getDefaultAgentPreset,
+	renderTaskPromptTemplate,
+} from "shared/utils/agent-preset-settings";
 import type { TaskWithStatus } from "../../../../../components/TasksView/hooks/useTasksTable";
-import { buildAgentCommand } from "../../../../utils/buildAgentCommand";
 import { deriveBranchName } from "../../../../utils/deriveBranchName";
 
 interface OpenInWorkspaceProps {
@@ -41,13 +46,36 @@ interface OpenInWorkspaceProps {
 export function OpenInWorkspace({ task }: OpenInWorkspaceProps) {
 	const { data: recentProjects = [] } =
 		electronTrpc.projects.getRecents.useQuery();
+	const { data: agentPresets = [] } =
+		electronTrpc.settings.getAgentPresets.useQuery();
 	const createWorkspace = useCreateWorkspace();
 	const terminalCreateOrAttach =
 		electronTrpc.terminal.createOrAttach.useMutation();
 	const terminalWrite = electronTrpc.terminal.write.useMutation();
 	const isDark = useIsDarkTheme();
-	const selectableAgents =
-		STARTABLE_AGENT_TYPES as readonly StartableAgentType[];
+	const selectableAgents = useMemo(() => {
+		const enabledTerminalAgents =
+			agentPresets.length > 0
+				? agentPresets
+						.filter((preset) => preset.enabled !== false)
+						.map((preset) => preset.id as AgentType)
+				: (STARTABLE_AGENT_TYPES.filter(
+						(agent) => agent !== "superset-chat",
+					) as AgentType[]);
+		return [...enabledTerminalAgents, "superset-chat"] as StartableAgentType[];
+	}, [agentPresets]);
+	const selectableAgentSet = useMemo(
+		() => new Set(selectableAgents),
+		[selectableAgents],
+	);
+	const fallbackAgent = useMemo<StartableAgentType>(() => {
+		if (selectableAgents.includes("claude")) return "claude";
+		return selectableAgents[0] ?? "superset-chat";
+	}, [selectableAgents]);
+	const agentPresetById = useMemo(
+		() => new Map(agentPresets.map((preset) => [preset.id, preset] as const)),
+		[agentPresets],
+	);
 	const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
 		() => localStorage.getItem("lastOpenedInProjectId"),
 	);
@@ -72,38 +100,60 @@ export function OpenInWorkspace({ task }: OpenInWorkspaceProps) {
 	}, [selectedProjectId, recentProjects]);
 
 	useEffect(() => {
-		if ((STARTABLE_AGENT_TYPES as readonly string[]).includes(selectedAgent)) {
+		if (selectableAgentSet.has(selectedAgent)) {
 			return;
 		}
-		setSelectedAgent("claude");
-		localStorage.setItem("lastSelectedAgent", "claude");
-	}, [selectedAgent]);
+		setSelectedAgent(fallbackAgent);
+		localStorage.setItem("lastSelectedAgent", fallbackAgent);
+	}, [selectedAgent, fallbackAgent, selectableAgentSet]);
 
 	const handleOpen = async () => {
 		if (!effectiveProjectId) return;
 		await handleSelectProject(effectiveProjectId);
 	};
 
+	const taskPromptInput = {
+		id: task.id,
+		slug: task.slug,
+		title: task.title,
+		description: task.description,
+		priority: task.priority,
+		statusName: task.status.name,
+		labels: task.labels,
+	};
+
 	const buildLaunchRequest = (workspaceId: string): AgentLaunchRequest => {
 		if (selectedAgent === "superset-chat") {
+			const template =
+				agentPresetById.get("claude")?.taskPromptTemplate ??
+				DEFAULT_AGENT_TASK_PROMPT_TEMPLATE;
 			return {
 				kind: "chat",
 				workspaceId,
 				agentType: "superset-chat",
 				source: "open-in-workspace",
 				chat: {
-					initialPrompt: buildAgentTaskPrompt({
-						id: task.id,
-						slug: task.slug,
-						title: task.title,
-						description: task.description,
-						priority: task.priority,
-						statusName: task.status.name,
-						labels: task.labels,
-					}),
+					initialPrompt: renderTaskPromptTemplate(template, taskPromptInput),
 					retryCount: 1,
 				},
 			};
+		}
+
+		const selectedPreset =
+			agentPresetById.get(selectedAgent) ??
+			getDefaultAgentPreset(selectedAgent);
+		const taskPrompt = renderTaskPromptTemplate(
+			selectedPreset.taskPromptTemplate,
+			taskPromptInput,
+		);
+		const command = buildPromptCommandFromAgentPreset({
+			prompt: taskPrompt,
+			randomId: window.crypto.randomUUID(),
+			preset: selectedPreset,
+		});
+
+		if (!command) {
+			throw new Error(`No command configured for agent "${selectedAgent}"`);
 		}
 
 		return {
@@ -112,19 +162,7 @@ export function OpenInWorkspace({ task }: OpenInWorkspaceProps) {
 			agentType: selectedAgent,
 			source: "open-in-workspace",
 			terminal: {
-				command: buildAgentCommand({
-					task: {
-						id: task.id,
-						slug: task.slug,
-						title: task.title,
-						description: task.description,
-						priority: task.priority,
-						statusName: task.status.name,
-						labels: task.labels,
-					},
-					randomId: window.crypto.randomUUID(),
-					agent: selectedAgent,
-				}),
+				command,
 				name: task.slug,
 			},
 		};
@@ -262,6 +300,9 @@ export function OpenInWorkspace({ task }: OpenInWorkspaceProps) {
 				<SelectContent>
 					{selectableAgents.map((agent) => {
 						const icon = getPresetIcon(agent, isDark);
+						const label =
+							agentPresetById.get(agent as AgentType)?.label ??
+							STARTABLE_AGENT_LABELS[agent];
 						return (
 							<SelectItem key={agent} value={agent}>
 								<span className="flex items-center gap-2">
@@ -272,7 +313,7 @@ export function OpenInWorkspace({ task }: OpenInWorkspaceProps) {
 											className="size-3.5 object-contain"
 										/>
 									)}
-									{STARTABLE_AGENT_LABELS[agent]}
+									{label}
 								</span>
 							</SelectItem>
 						);

@@ -26,6 +26,7 @@ interface NewWorkspaceCreateFlowProps {
 	projectSelector: ReactNode;
 	selectedAgent: WorkspaceCreateAgent;
 	agentOptions: readonly StartableAgentType[];
+	agentLabels?: Partial<Record<StartableAgentType, string>>;
 	onSelectedAgentChange: (agent: WorkspaceCreateAgent) => void;
 	title: string;
 	onTitleChange: (value: string) => void;
@@ -42,6 +43,7 @@ export function NewWorkspaceCreateFlow({
 	projectSelector,
 	selectedAgent,
 	agentOptions,
+	agentLabels,
 	onSelectedAgentChange,
 	title,
 	onTitleChange,
@@ -75,6 +77,8 @@ export function NewWorkspaceCreateFlow({
 							<SelectItem value="none">No agent</SelectItem>
 							{agentOptions.map((agent) => {
 								const icon = getPresetIcon(agent, isDark);
+								const label =
+									agentLabels?.[agent] ?? STARTABLE_AGENT_LABELS[agent];
 								return (
 									<SelectItem key={agent} value={agent}>
 										<span className="flex items-center gap-2">
@@ -85,7 +89,7 @@ export function NewWorkspaceCreateFlow({
 													className="size-3.5 object-contain"
 												/>
 											)}
-											{STARTABLE_AGENT_LABELS[agent]}
+											{label}
 										</span>
 									</SelectItem>
 								);

@@ -28,6 +28,7 @@ type SettingsRoute =
 	| "/settings/ringtones"
 	| "/settings/keyboard"
 	| "/settings/behavior"
+	| "/settings/agent"
 	| "/settings/terminal"
 	| "/settings/integrations"
 	| "/settings/billing"
@@ -76,6 +77,12 @@ const GENERAL_SECTIONS: {
 		id: "/settings/behavior",
 		section: "behavior",
 		label: "Features",
+		icon: <HiOutlineSparkles className="h-4 w-4" />,
+	},
+	{
+		id: "/settings/agent",
+		section: "agent",
+		label: "Agent",
 		icon: <HiOutlineSparkles className="h-4 w-4" />,
 	},
 	{

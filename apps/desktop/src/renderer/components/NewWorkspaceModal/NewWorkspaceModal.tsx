@@ -1,9 +1,7 @@
-import {
-	AGENT_PRESET_COMMANDS,
-	buildAgentPromptCommand,
-} from "@superset/shared/agent-command";
+import type { AgentType } from "@superset/shared/agent-command";
 import {
 	type AgentLaunchRequest,
+	STARTABLE_AGENT_LABELS,
 	STARTABLE_AGENT_TYPES,
 	type StartableAgentType,
 } from "@superset/shared/agent-launch";
@@ -24,6 +22,11 @@ import {
 	useNewWorkspaceModalOpen,
 	usePreSelectedProjectId,
 } from "renderer/stores/new-workspace-modal";
+import {
+	buildPromptCommandFromAgentPreset,
+	getCommandFromAgentPreset,
+	getDefaultAgentPreset,
+} from "shared/utils/agent-preset-settings";
 import {
 	resolveBranchPrefix,
 	sanitizeBranchNameWithMaxLength,
@@ -95,6 +98,8 @@ export function NewWorkspaceModal() {
 	const { data: globalBranchPrefix } =
 		electronTrpc.settings.getBranchPrefix.useQuery();
 	const { data: gitInfo } = electronTrpc.settings.getGitInfo.useQuery();
+	const { data: agentPresets = [] } =
+		electronTrpc.settings.getAgentPresets.useQuery();
 	const terminalCreateOrAttach =
 		electronTrpc.terminal.createOrAttach.useMutation();
 	const terminalWrite = electronTrpc.terminal.write.useMutation();
@@ -105,8 +110,36 @@ export function NewWorkspaceModal() {
 	const updateWorkspace = useUpdateWorkspace();
 	const generateName = electronTrpc.workspaces.generateName.useMutation();
 	const { openNew } = useOpenProject();
-	const selectableAgents =
-		STARTABLE_AGENT_TYPES as readonly StartableAgentType[];
+	const selectableAgents = useMemo(() => {
+		const enabledTerminalAgents =
+			agentPresets.length > 0
+				? agentPresets
+						.filter((preset) => preset.enabled !== false)
+						.map((preset) => preset.id as AgentType)
+				: (STARTABLE_AGENT_TYPES.filter(
+						(agent) => agent !== "superset-chat",
+					) as AgentType[]);
+
+		const withSupersetChat = [...enabledTerminalAgents, "superset-chat"];
+		return withSupersetChat as StartableAgentType[];
+	}, [agentPresets]);
+	const selectableAgentSet = useMemo(
+		() => new Set(selectableAgents),
+		[selectableAgents],
+	);
+	const agentPresetById = useMemo(
+		() => new Map(agentPresets.map((preset) => [preset.id, preset] as const)),
+		[agentPresets],
+	);
+	const agentLabels = useMemo(() => {
+		const labels: Partial<Record<StartableAgentType, string>> = {
+			"superset-chat": STARTABLE_AGENT_LABELS["superset-chat"],
+		};
+		for (const preset of agentPresets) {
+			labels[preset.id as StartableAgentType] = preset.label;
+		}
+		return labels;
+	}, [agentPresets]);
 
 	const resolvedPrefix = useMemo(() => {
 		const projectOverrides = project?.branchPrefixMode != null;
@@ -142,12 +175,12 @@ export function NewWorkspaceModal() {
 
 	useEffect(() => {
 		if (selectedAgent === "none") return;
-		if ((STARTABLE_AGENT_TYPES as readonly string[]).includes(selectedAgent)) {
+		if (selectableAgentSet.has(selectedAgent)) {
 			return;
 		}
 		setSelectedAgent("none");
 		window.localStorage.setItem(WORKSPACE_AGENT_STORAGE_KEY, "none");
-	}, [selectedAgent]);
+	}, [selectedAgent, selectableAgentSet]);
 
 	const effectiveBaseBranch = resolveEffectiveWorkspaceBaseBranch({
 		explicitBaseBranch: baseBranch,
@@ -283,13 +316,16 @@ export function NewWorkspaceModal() {
 			};
 		}
 
+		const selectedPreset =
+			agentPresetById.get(selectedAgent) ??
+			getDefaultAgentPreset(selectedAgent);
 		const command = prompt
-			? buildAgentPromptCommand({
+			? buildPromptCommandFromAgentPreset({
 					prompt,
 					randomId: window.crypto.randomUUID(),
-					agent: selectedAgent,
+					preset: selectedPreset,
 				})
-			: (AGENT_PRESET_COMMANDS[selectedAgent][0] ?? null);
+			: getCommandFromAgentPreset(selectedPreset);
 
 		if (!command) {
 			return null;
@@ -446,6 +482,7 @@ export function NewWorkspaceModal() {
 								projectSelector={projectSelector}
 								selectedAgent={selectedAgent}
 								agentOptions={selectableAgents}
+								agentLabels={agentLabels}
 								onSelectedAgentChange={handleAgentChange}
 								title={title}
 								onTitleChange={setTitle}
