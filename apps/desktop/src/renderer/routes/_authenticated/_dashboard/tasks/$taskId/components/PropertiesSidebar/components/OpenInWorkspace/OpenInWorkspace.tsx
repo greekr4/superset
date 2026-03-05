@@ -158,9 +158,9 @@ export function OpenInWorkspace({ task }: OpenInWorkspaceProps) {
 			slug: task.slug,
 			title: task.title,
 		});
-		const launchRequestTemplate = buildLaunchRequest("pending-workspace");
 
 		try {
+			const launchRequestTemplate = buildLaunchRequest("pending-workspace");
 			const result = await createWorkspace.mutateAsyncWithPendingSetup(
 				{
 					projectId,

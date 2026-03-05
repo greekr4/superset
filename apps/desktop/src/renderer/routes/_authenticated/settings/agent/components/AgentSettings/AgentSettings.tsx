@@ -33,6 +33,16 @@ type AgentTextField =
 	| "promptCommandSuffix"
 	| "taskPromptTemplate";
 
+type AgentPresetPatch = {
+	label?: string;
+	description?: string | null;
+	command?: string;
+	promptCommand?: string;
+	promptCommandSuffix?: string | null;
+	taskPromptTemplate?: string;
+	enabled?: boolean;
+};
+
 function getFieldValue(preset: AgentPreset, field: AgentTextField): string {
 	switch (field) {
 		case "label":
@@ -59,6 +69,49 @@ function isRequiredField(field: AgentTextField): boolean {
 	);
 }
 
+function mergePresetWithLocalEdits({
+	localPreset,
+	serverPreset,
+	previousServerPreset,
+}: {
+	localPreset: AgentPreset;
+	serverPreset: AgentPreset;
+	previousServerPreset: AgentPreset;
+}): AgentPreset {
+	return {
+		...serverPreset,
+		label:
+			localPreset.label !== previousServerPreset.label
+				? localPreset.label
+				: serverPreset.label,
+		description:
+			localPreset.description !== previousServerPreset.description
+				? localPreset.description
+				: serverPreset.description,
+		command:
+			localPreset.command !== previousServerPreset.command
+				? localPreset.command
+				: serverPreset.command,
+		promptCommand:
+			localPreset.promptCommand !== previousServerPreset.promptCommand
+				? localPreset.promptCommand
+				: serverPreset.promptCommand,
+		promptCommandSuffix:
+			localPreset.promptCommandSuffix !==
+			previousServerPreset.promptCommandSuffix
+				? localPreset.promptCommandSuffix
+				: serverPreset.promptCommandSuffix,
+		taskPromptTemplate:
+			localPreset.taskPromptTemplate !== previousServerPreset.taskPromptTemplate
+				? localPreset.taskPromptTemplate
+				: serverPreset.taskPromptTemplate,
+		enabled:
+			localPreset.enabled !== previousServerPreset.enabled
+				? localPreset.enabled
+				: serverPreset.enabled,
+	};
+}
+
 export function AgentSettings({ visibleItems }: AgentSettingsProps) {
 	const showAgents = isItemVisible(SETTING_ITEM_ID.AGENT_PRESETS, visibleItems);
 	const showPromptTemplate = isItemVisible(
@@ -73,14 +126,45 @@ export function AgentSettings({ visibleItems }: AgentSettingsProps) {
 	const serverPresetsRef = useRef(serverPresets);
 
 	useEffect(() => {
+		const previousServerPresetsById = new Map(
+			serverPresetsRef.current.map((preset) => [preset.id, preset] as const),
+		);
+		setLocalPresets((currentPresets) => {
+			if (currentPresets.length === 0) {
+				return serverPresets;
+			}
+
+			const localPresetsById = new Map(
+				currentPresets.map((preset) => [preset.id, preset] as const),
+			);
+
+			return serverPresets.map((serverPreset) => {
+				const localPreset = localPresetsById.get(serverPreset.id);
+				if (!localPreset) {
+					return serverPreset;
+				}
+
+				const previousServerPreset = previousServerPresetsById.get(
+					serverPreset.id,
+				);
+				if (!previousServerPreset) {
+					return localPreset;
+				}
+
+				return mergePresetWithLocalEdits({
+					localPreset,
+					serverPreset,
+					previousServerPreset,
+				});
+			});
+		});
 		serverPresetsRef.current = serverPresets;
-		setLocalPresets(serverPresets);
 	}, [serverPresets]);
 
 	const showCards = showAgents || showPromptTemplate;
 
 	const updateLocalField = (
-		presetId: string,
+		presetId: AgentPreset["id"],
 		field: AgentTextField,
 		value: string,
 	) => {
@@ -91,7 +175,57 @@ export function AgentSettings({ visibleItems }: AgentSettingsProps) {
 		);
 	};
 
-	const handleFieldBlur = (presetId: string, field: AgentTextField) => {
+	const rollbackFieldFromServer = (
+		presetId: AgentPreset["id"],
+		field: AgentTextField,
+	) => {
+		const serverPreset = serverPresetsRef.current.find(
+			(preset) => preset.id === presetId,
+		);
+		if (!serverPreset) return;
+
+		updateLocalField(presetId, field, getFieldValue(serverPreset, field));
+	};
+
+	const rollbackPresetFromServer = (presetId: AgentPreset["id"]) => {
+		const serverPreset = serverPresetsRef.current.find(
+			(preset) => preset.id === presetId,
+		);
+		if (!serverPreset) return;
+
+		setLocalPresets((current) =>
+			current.map((preset) => (preset.id === presetId ? serverPreset : preset)),
+		);
+	};
+
+	const mutatePresetWithRollback = ({
+		presetId,
+		patch,
+		rollbackField,
+	}: {
+		presetId: AgentPreset["id"];
+		patch: AgentPresetPatch;
+		rollbackField?: AgentTextField;
+	}) => {
+		updatePreset.mutate(
+			{ id: presetId, patch },
+			{
+				onError: () => {
+					if (rollbackField) {
+						rollbackFieldFromServer(presetId, rollbackField);
+						return;
+					}
+
+					rollbackPresetFromServer(presetId);
+				},
+			},
+		);
+	};
+
+	const handleFieldBlur = (
+		presetId: AgentPreset["id"],
+		field: AgentTextField,
+	) => {
 		const localPreset = localPresets.find((preset) => preset.id === presetId);
 		const serverPreset = serverPresetsRef.current.find(
 			(preset) => preset.id === presetId,
@@ -110,52 +244,61 @@ export function AgentSettings({ visibleItems }: AgentSettingsProps) {
 
 		switch (field) {
 			case "label":
-				updatePreset.mutate({
-					id: localPreset.id,
+				mutatePresetWithRollback({
+					presetId: localPreset.id,
 					patch: { label: localValue.trim() },
+					rollbackField: "label",
 				});
 				return;
 			case "description":
-				updatePreset.mutate({
-					id: localPreset.id,
+				mutatePresetWithRollback({
+					presetId: localPreset.id,
 					patch: { description: localValue.trim() || null },
+					rollbackField: "description",
 				});
 				return;
 			case "command":
-				updatePreset.mutate({
-					id: localPreset.id,
+				mutatePresetWithRollback({
+					presetId: localPreset.id,
 					patch: { command: localValue.trim() },
+					rollbackField: "command",
 				});
 				return;
 			case "promptCommand":
-				updatePreset.mutate({
-					id: localPreset.id,
+				mutatePresetWithRollback({
+					presetId: localPreset.id,
 					patch: { promptCommand: localValue.trim() },
+					rollbackField: "promptCommand",
 				});
 				return;
 			case "promptCommandSuffix":
-				updatePreset.mutate({
-					id: localPreset.id,
+				mutatePresetWithRollback({
+					presetId: localPreset.id,
 					patch: { promptCommandSuffix: localValue.trim() || null },
+					rollbackField: "promptCommandSuffix",
 				});
 				return;
 			case "taskPromptTemplate":
-				updatePreset.mutate({
-					id: localPreset.id,
+				mutatePresetWithRollback({
+					presetId: localPreset.id,
 					patch: { taskPromptTemplate: localValue.trim() },
+					rollbackField: "taskPromptTemplate",
 				});
 				return;
 		}
 	};
 
-	const handleEnabledChange = (presetId: string, enabled: boolean) => {
+	const handleEnabledChange = (
+		presetId: AgentPreset["id"],
+		enabled: boolean,
+	) => {
 		setLocalPresets((current) =>
 			current.map((preset) =>
 				preset.id === presetId ? { ...preset, enabled } : preset,
 			),
 		);
-		updatePreset.mutate({
-			id: presetId as AgentPreset["id"],
+		mutatePresetWithRollback({
+			presetId,
 			patch: { enabled },
 		});
 	};

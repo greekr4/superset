@@ -96,8 +96,13 @@ export function NewWorkspaceModal() {
 	const { data: globalBranchPrefix } =
 		electronTrpc.settings.getBranchPrefix.useQuery();
 	const { data: gitInfo } = electronTrpc.settings.getGitInfo.useQuery();
-	const { agentPresetById, agentLabels, selectableAgents, selectableAgentSet } =
-		useAgentLaunchAgents();
+	const {
+		agentPresetById,
+		agentLabels,
+		selectableAgents,
+		selectableAgentSet,
+		isLoading: isAgentPresetsLoading,
+	} = useAgentLaunchAgents();
 	const terminalCreateOrAttach =
 		electronTrpc.terminal.createOrAttach.useMutation();
 	const terminalWrite = electronTrpc.terminal.write.useMutation();
@@ -207,7 +212,7 @@ export function NewWorkspaceModal() {
 			!e.shiftKey &&
 			mode === "new" &&
 			selectedProjectId &&
-			!createWorkspace.isPending
+			!isCreateDisabled
 		) {
 			e.preventDefault();
 			handleCreateWorkspace();
@@ -262,7 +267,12 @@ export function NewWorkspaceModal() {
 			onImportRepo={handleImportRepo}
 		/>
 	);
-	const isCreateDisabled = createWorkspace.isPending || isBranchesError;
+	const isAgentPresetSelection =
+		selectedAgent !== "none" && selectedAgent !== "superset-chat";
+	const isCreateDisabled =
+		createWorkspace.isPending ||
+		isBranchesError ||
+		(isAgentPresetSelection && isAgentPresetsLoading);
 	const buildLaunchRequestForWorkspace = (
 		workspaceId: string,
 		prompt: string,
@@ -284,16 +294,20 @@ export function NewWorkspaceModal() {
 			};
 		}
 
-		const selectedPreset =
-			agentPresetById.get(selectedAgent) ??
-			getDefaultAgentPreset(selectedAgent);
+		const selectedPreset = agentPresetById.get(selectedAgent);
+		const resolvedPreset =
+			selectedPreset ??
+			(!isAgentPresetsLoading ? getDefaultAgentPreset(selectedAgent) : null);
+		if (!resolvedPreset) {
+			return null;
+		}
 		const command = prompt
 			? buildPromptCommandFromAgentPreset({
 					prompt,
 					randomId: window.crypto.randomUUID(),
-					preset: selectedPreset,
+					preset: resolvedPreset,
 				})
-			: getCommandFromAgentPreset(selectedPreset);
+			: getCommandFromAgentPreset(resolvedPreset);
 
 		if (!command) {
 			return null;
@@ -313,6 +327,7 @@ export function NewWorkspaceModal() {
 
 	const handleCreateWorkspace = async () => {
 		if (!selectedProjectId) return;
+		if (isAgentPresetSelection && isAgentPresetsLoading) return;
 		// Keep the agent prompt uncapped; only trim surrounding whitespace.
 		const prompt = title.trim();
 
