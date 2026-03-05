@@ -192,9 +192,6 @@ export function AgentSettings({ visibleItems }: AgentSettingsProps) {
 												/>
 											)}
 											<p className="font-medium truncate">{preset.label}</p>
-											<span className="text-xs text-muted-foreground shrink-0">
-												{preset.id}
-											</span>
 											<HiChevronRight className="h-4 w-4 text-muted-foreground group-data-[state=open]:hidden" />
 											<HiChevronDown className="h-4 w-4 text-muted-foreground group-data-[state=closed]:hidden" />
 										</CollapsibleTrigger>
