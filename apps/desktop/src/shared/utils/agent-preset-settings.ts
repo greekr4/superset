@@ -3,6 +3,7 @@ import {
 	AGENT_LABELS,
 	AGENT_PRESET_COMMANDS,
 	AGENT_PRESET_DESCRIPTIONS,
+	AGENT_PROMPT_COMMANDS,
 	AGENT_TYPES,
 	type AgentType,
 	type TaskInput,
@@ -12,38 +13,7 @@ import {
 	type StartableAgentType,
 } from "@superset/shared/agent-launch";
 
-interface AgentPromptCommandDefaults {
-	command: string;
-	suffix?: string;
-}
-
 export const OPEN_AGENT_SETTINGS_OPTION = "__open-agent-settings__" as const;
-
-const AGENT_PROMPT_COMMAND_DEFAULTS: Record<
-	AgentType,
-	AgentPromptCommandDefaults
-> = {
-	claude: {
-		command: "claude --dangerously-skip-permissions",
-	},
-	codex: {
-		command:
-			'codex -c model_reasoning_effort="high" --dangerously-bypass-approvals-and-sandbox --',
-	},
-	gemini: {
-		command: "gemini --yolo",
-	},
-	opencode: {
-		command: "opencode --prompt",
-	},
-	copilot: {
-		command: "copilot -i",
-		suffix: "--yolo",
-	},
-	"cursor-agent": {
-		command: "cursor-agent --yolo",
-	},
-};
 
 export const DEFAULT_AGENT_TASK_PROMPT_TEMPLATE = `You are working on task "{{title}}" ({{slug}}).
 
@@ -70,7 +40,7 @@ You are running fully autonomously. Do not ask questions or wait for user feedba
 5. When done, use the Superset MCP \`update_task\` tool to update task "{{id}}" with a summary of what was done`;
 
 function createDefaultAgentPreset(agent: AgentType): AgentPreset {
-	const promptDefaults = AGENT_PROMPT_COMMAND_DEFAULTS[agent];
+	const promptDefaults = AGENT_PROMPT_COMMANDS[agent];
 	return {
 		id: agent,
 		label: AGENT_LABELS[agent],

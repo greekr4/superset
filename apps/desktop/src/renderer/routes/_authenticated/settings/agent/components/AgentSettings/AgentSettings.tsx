@@ -1,4 +1,5 @@
 import type { AgentPreset } from "@superset/local-db";
+import { Button } from "@superset/ui/button";
 import {
 	Collapsible,
 	CollapsibleContent,
@@ -15,6 +16,7 @@ import {
 	useIsDarkTheme,
 } from "renderer/assets/app-icons/preset-icons";
 import { useAgentPresets } from "renderer/react-query/agent-presets";
+import { getDefaultAgentPresets } from "shared/utils/agent-preset-settings";
 import {
 	isItemVisible,
 	SETTING_ITEM_ID,
@@ -303,13 +305,50 @@ export function AgentSettings({ visibleItems }: AgentSettingsProps) {
 		});
 	};
 
+	const handleResetDefaults = () => {
+		if (updatePreset.isPending) return;
+
+		const shouldReset = window.confirm(
+			"Reset all agent commands, prompts, toggles, and templates to defaults?",
+		);
+		if (!shouldReset) return;
+
+		const defaults = getDefaultAgentPresets();
+		setLocalPresets(defaults);
+		for (const preset of defaults) {
+			mutatePresetWithRollback({
+				presetId: preset.id,
+				patch: {
+					label: preset.label,
+					description: preset.description ?? null,
+					command: preset.command,
+					promptCommand: preset.promptCommand,
+					promptCommandSuffix: preset.promptCommandSuffix ?? null,
+					taskPromptTemplate: preset.taskPromptTemplate,
+					enabled: preset.enabled ?? true,
+				},
+			});
+		}
+	};
+
 	return (
 		<div className="p-6 max-w-7xl w-full">
-			<div className="mb-8">
-				<h2 className="text-xl font-semibold">Agent</h2>
-				<p className="text-sm text-muted-foreground mt-1">
-					Configure agent dropdown commands and task prompt templates
-				</p>
+			<div className="mb-8 flex items-start justify-between gap-3">
+				<div>
+					<h2 className="text-xl font-semibold">Agent</h2>
+					<p className="text-sm text-muted-foreground mt-1">
+						Configure agent dropdown commands and task prompt templates
+					</p>
+				</div>
+				<Button
+					type="button"
+					variant="outline"
+					size="sm"
+					onClick={handleResetDefaults}
+					disabled={updatePreset.isPending}
+				>
+					Reset defaults
+				</Button>
 			</div>
 
 			{showCards && (
