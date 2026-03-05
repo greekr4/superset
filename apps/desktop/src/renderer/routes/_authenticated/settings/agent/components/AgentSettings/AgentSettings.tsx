@@ -1,9 +1,15 @@
 import type { AgentPreset } from "@superset/local-db";
+import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from "@superset/ui/collapsible";
 import { Input } from "@superset/ui/input";
 import { Label } from "@superset/ui/label";
 import { Switch } from "@superset/ui/switch";
 import { Textarea } from "@superset/ui/textarea";
 import { useEffect, useRef, useState } from "react";
+import { HiChevronDown, HiChevronRight } from "react-icons/hi2";
 import {
 	getPresetIcon,
 	useIsDarkTheme,
@@ -174,140 +180,162 @@ export function AgentSettings({ visibleItems }: AgentSettingsProps) {
 						const enabled = preset.enabled ?? true;
 
 						return (
-							<div
-								key={preset.id}
-								className="rounded-lg border border-border p-4 space-y-4"
-							>
-								<div className="flex items-center justify-between gap-3">
-									<div className="flex items-center gap-2 min-w-0">
-										{icon && (
-											<img
-												src={icon}
-												alt=""
-												className="size-4 object-contain"
+							<Collapsible key={preset.id} defaultOpen={false}>
+								<div className="rounded-lg border border-border">
+									<div className="flex items-center justify-between gap-3 p-4">
+										<CollapsibleTrigger className="group flex items-center gap-2 min-w-0 flex-1 text-left">
+											{icon && (
+												<img
+													src={icon}
+													alt=""
+													className="size-4 object-contain"
+												/>
+											)}
+											<p className="font-medium truncate">{preset.label}</p>
+											<span className="text-xs text-muted-foreground shrink-0">
+												{preset.id}
+											</span>
+											<HiChevronRight className="h-4 w-4 text-muted-foreground group-data-[state=open]:hidden" />
+											<HiChevronDown className="h-4 w-4 text-muted-foreground group-data-[state=closed]:hidden" />
+										</CollapsibleTrigger>
+										<div className="flex items-center gap-2 shrink-0">
+											<Label
+												htmlFor={`agent-enabled-${preset.id}`}
+												className="text-xs text-muted-foreground"
+											>
+												Enabled
+											</Label>
+											<Switch
+												id={`agent-enabled-${preset.id}`}
+												checked={enabled}
+												onCheckedChange={(checked) =>
+													handleEnabledChange(preset.id, checked)
+												}
 											/>
-										)}
-										<p className="font-medium truncate">{preset.label}</p>
-										<span className="text-xs text-muted-foreground shrink-0">
-											{preset.id}
-										</span>
+										</div>
 									</div>
-									<div className="flex items-center gap-2 shrink-0">
-										<Label
-											htmlFor={`agent-enabled-${preset.id}`}
-											className="text-xs text-muted-foreground"
-										>
-											Enabled
-										</Label>
-										<Switch
-											id={`agent-enabled-${preset.id}`}
-											checked={enabled}
-											onCheckedChange={(checked) =>
-												handleEnabledChange(preset.id, checked)
-											}
-										/>
-									</div>
+
+									<CollapsibleContent>
+										<div className="space-y-4 px-4 pb-4">
+											{showAgents && (
+												<>
+													<div className="space-y-1.5">
+														<Label htmlFor={`agent-label-${preset.id}`}>
+															Label
+														</Label>
+														<Input
+															id={`agent-label-${preset.id}`}
+															value={preset.label}
+															onChange={(e) =>
+																updateLocalField(
+																	preset.id,
+																	"label",
+																	e.target.value,
+																)
+															}
+															onBlur={() => handleFieldBlur(preset.id, "label")}
+														/>
+													</div>
+
+													<div className="space-y-1.5">
+														<Label htmlFor={`agent-command-${preset.id}`}>
+															Command (No Prompt)
+														</Label>
+														<Input
+															id={`agent-command-${preset.id}`}
+															value={preset.command}
+															onChange={(e) =>
+																updateLocalField(
+																	preset.id,
+																	"command",
+																	e.target.value,
+																)
+															}
+															onBlur={() =>
+																handleFieldBlur(preset.id, "command")
+															}
+														/>
+													</div>
+
+													<div className="space-y-1.5">
+														<Label
+															htmlFor={`agent-prompt-command-${preset.id}`}
+														>
+															Command (With Prompt)
+														</Label>
+														<Input
+															id={`agent-prompt-command-${preset.id}`}
+															value={preset.promptCommand}
+															onChange={(e) =>
+																updateLocalField(
+																	preset.id,
+																	"promptCommand",
+																	e.target.value,
+																)
+															}
+															onBlur={() =>
+																handleFieldBlur(preset.id, "promptCommand")
+															}
+														/>
+													</div>
+
+													<div className="space-y-1.5">
+														<Label htmlFor={`agent-prompt-suffix-${preset.id}`}>
+															Prompt Command Suffix (Optional)
+														</Label>
+														<Input
+															id={`agent-prompt-suffix-${preset.id}`}
+															value={preset.promptCommandSuffix ?? ""}
+															onChange={(e) =>
+																updateLocalField(
+																	preset.id,
+																	"promptCommandSuffix",
+																	e.target.value,
+																)
+															}
+															onBlur={() =>
+																handleFieldBlur(
+																	preset.id,
+																	"promptCommandSuffix",
+																)
+															}
+															placeholder="e.g. --yolo"
+														/>
+													</div>
+												</>
+											)}
+
+											{showPromptTemplate && (
+												<div className="space-y-1.5">
+													<Label htmlFor={`agent-task-prompt-${preset.id}`}>
+														Task Prompt Template
+													</Label>
+													<Textarea
+														id={`agent-task-prompt-${preset.id}`}
+														value={preset.taskPromptTemplate}
+														onChange={(e) =>
+															updateLocalField(
+																preset.id,
+																"taskPromptTemplate",
+																e.target.value,
+															)
+														}
+														onBlur={() =>
+															handleFieldBlur(preset.id, "taskPromptTemplate")
+														}
+														className="min-h-40 font-mono text-xs"
+													/>
+													<p className="text-xs text-muted-foreground">
+														Supported variables: {"{{id}}"}, {"{{slug}}"},{" "}
+														{"{{title}}"}, {"{{description}}"}, {"{{priority}}"}
+														, {"{{statusName}}"}, {"{{labels}}"}
+													</p>
+												</div>
+											)}
+										</div>
+									</CollapsibleContent>
 								</div>
-
-								{showAgents && (
-									<>
-										<div className="space-y-1.5">
-											<Label htmlFor={`agent-label-${preset.id}`}>Label</Label>
-											<Input
-												id={`agent-label-${preset.id}`}
-												value={preset.label}
-												onChange={(e) =>
-													updateLocalField(preset.id, "label", e.target.value)
-												}
-												onBlur={() => handleFieldBlur(preset.id, "label")}
-											/>
-										</div>
-
-										<div className="space-y-1.5">
-											<Label htmlFor={`agent-command-${preset.id}`}>
-												Command (No Prompt)
-											</Label>
-											<Input
-												id={`agent-command-${preset.id}`}
-												value={preset.command}
-												onChange={(e) =>
-													updateLocalField(preset.id, "command", e.target.value)
-												}
-												onBlur={() => handleFieldBlur(preset.id, "command")}
-											/>
-										</div>
-
-										<div className="space-y-1.5">
-											<Label htmlFor={`agent-prompt-command-${preset.id}`}>
-												Command (With Prompt)
-											</Label>
-											<Input
-												id={`agent-prompt-command-${preset.id}`}
-												value={preset.promptCommand}
-												onChange={(e) =>
-													updateLocalField(
-														preset.id,
-														"promptCommand",
-														e.target.value,
-													)
-												}
-												onBlur={() =>
-													handleFieldBlur(preset.id, "promptCommand")
-												}
-											/>
-										</div>
-
-										<div className="space-y-1.5">
-											<Label htmlFor={`agent-prompt-suffix-${preset.id}`}>
-												Prompt Command Suffix (Optional)
-											</Label>
-											<Input
-												id={`agent-prompt-suffix-${preset.id}`}
-												value={preset.promptCommandSuffix ?? ""}
-												onChange={(e) =>
-													updateLocalField(
-														preset.id,
-														"promptCommandSuffix",
-														e.target.value,
-													)
-												}
-												onBlur={() =>
-													handleFieldBlur(preset.id, "promptCommandSuffix")
-												}
-												placeholder="e.g. --yolo"
-											/>
-										</div>
-									</>
-								)}
-
-								{showPromptTemplate && (
-									<div className="space-y-1.5">
-										<Label htmlFor={`agent-task-prompt-${preset.id}`}>
-											Task Prompt Template
-										</Label>
-										<Textarea
-											id={`agent-task-prompt-${preset.id}`}
-											value={preset.taskPromptTemplate}
-											onChange={(e) =>
-												updateLocalField(
-													preset.id,
-													"taskPromptTemplate",
-													e.target.value,
-												)
-											}
-											onBlur={() =>
-												handleFieldBlur(preset.id, "taskPromptTemplate")
-											}
-											className="min-h-40 font-mono text-xs"
-										/>
-										<p className="text-xs text-muted-foreground">
-											Supported variables: {"{{id}}"}, {"{{slug}}"},{" "}
-											{"{{title}}"}, {"{{description}}"}, {"{{priority}}"},{" "}
-											{"{{statusName}}"}, {"{{labels}}"}
-										</p>
-									</div>
-								)}
-							</div>
+							</Collapsible>
 						);
 					})}
 				</div>
