@@ -57,6 +57,10 @@ function writeFileIfChanged(
 	return true;
 }
 
+/**
+ * Build shell function wrappers for managed binaries (claude, codex, etc.)
+ * that prefer BIN_DIR executables over system-installed ones.
+ */
 function buildManagedCommandPrelude(shellName: string, binDir: string): string {
 	if (shellName === "fish") {
 		const escapedBinDir = escapeFishDoubleQuoted(binDir);
@@ -88,6 +92,7 @@ ${name}() {
 	).join("\n");
 }
 
+/** Build a shell snippet that idempotently prepends BIN_DIR to PATH. */
 function buildPathPrependFunction(binDir: string): string {
 	return `_superset_prepend_bin() {
   case ":$PATH:" in
@@ -105,14 +110,14 @@ _superset_prepend_bin`;
  * BIN_DIR survives dynamic PATH modifications.
  */
 function buildZshPrecmdHook(binDir: string): string {
-	return `autoload -Uz add-zsh-hook 2>/dev/null
+	return `typeset -ga precmd_functions
 _superset_ensure_path() {
   case ":$PATH:" in
     *:"${binDir}":*) ;;
     *) PATH="${binDir}:$PATH" ;;
   esac
 }
-add-zsh-hook precmd _superset_ensure_path`;
+[[ \${precmd_functions[(I)_superset_ensure_path]} -eq 0 ]] && precmd_functions+=(_superset_ensure_path)`;
 }
 
 function escapeFishDoubleQuoted(value: string): string {
