@@ -30,10 +30,17 @@ export function useFileContent({
 	const isRemote =
 		filePath.startsWith("https://") || filePath.startsWith("http://");
 
+	// Absolute paths (starting with /) are external files outside the worktree
+	const isAbsolutePath = filePath.startsWith("/");
+
 	const { data: branchData } = electronTrpc.changes.getBranches.useQuery(
 		{ worktreePath },
 		{
-			enabled: !isRemote && !!worktreePath && diffCategory === "against-base",
+			enabled:
+				!isRemote &&
+				!isAbsolutePath &&
+				!!worktreePath &&
+				diffCategory === "against-base",
 		},
 	);
 	const effectiveBaseBranch =
@@ -41,12 +48,28 @@ export function useFileContent({
 
 	const isImage = isImageFile(filePath);
 
+	// Use filesystem.readFile for absolute paths (external files)
+	const { data: externalFileData, isLoading: isLoadingExternal } =
+		electronTrpc.filesystem.readFile.useQuery(
+			{ filePath },
+			{
+				enabled:
+					isAbsolutePath &&
+					!isRemote &&
+					viewMode !== "diff" &&
+					!isImage &&
+					!!filePath,
+			},
+		);
+
+	// Use changes.readWorkingFile for worktree-relative paths
 	const { data: rawFileData, isLoading: isLoadingRaw } =
 		electronTrpc.changes.readWorkingFile.useQuery(
 			{ worktreePath, filePath },
 			{
 				enabled:
 					!isRemote &&
+					!isAbsolutePath &&
 					viewMode !== "diff" &&
 					!isImage &&
 					!!filePath &&
@@ -54,12 +77,19 @@ export function useFileContent({
 			},
 		);
 
+	// Merge external and worktree file data into a single result
+	const effectiveRawFileData = isAbsolutePath ? externalFileData : rawFileData;
+	const effectiveIsLoadingRaw = isAbsolutePath
+		? isLoadingExternal
+		: isLoadingRaw;
+
 	const { data: imageData, isLoading: isLoadingImage } =
 		electronTrpc.changes.readWorkingFileImage.useQuery(
 			{ worktreePath, filePath },
 			{
 				enabled:
 					!isRemote &&
+					!isAbsolutePath &&
 					viewMode === "rendered" &&
 					isImage &&
 					!!filePath &&
@@ -81,6 +111,7 @@ export function useFileContent({
 			{
 				enabled:
 					!isRemote &&
+					!isAbsolutePath &&
 					viewMode === "diff" &&
 					!!diffCategory &&
 					!!filePath &&
@@ -90,10 +121,10 @@ export function useFileContent({
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Only update baseline when content loads
 	useEffect(() => {
-		if (rawFileData?.ok === true && !isDirty) {
-			originalContentRef.current = rawFileData.content;
+		if (effectiveRawFileData?.ok === true && !isDirty) {
+			originalContentRef.current = effectiveRawFileData.content;
 		}
-	}, [rawFileData]);
+	}, [effectiveRawFileData]);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Only update baseline when diff loads
 	useEffect(() => {
@@ -112,8 +143,8 @@ export function useFileContent({
 	);
 
 	return {
-		rawFileData,
-		isLoadingRaw: isLoadingRaw || (isImage && isLoadingImage),
+		rawFileData: effectiveRawFileData,
+		isLoadingRaw: effectiveIsLoadingRaw || (isImage && isLoadingImage),
 		imageData: isRemote ? remoteImageData : imageData,
 		isLoadingImage: isRemote ? false : isLoadingImage,
 		diffData,

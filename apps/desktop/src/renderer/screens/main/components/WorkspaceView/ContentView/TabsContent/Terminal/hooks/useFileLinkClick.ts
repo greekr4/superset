@@ -77,14 +77,9 @@ export function useFileLinkClick({
 					filePath = ".";
 				} else if (path.startsWith(`${workspaceCwd}/`)) {
 					filePath = path.slice(workspaceCwd.length + 1);
-				} else if (path.startsWith("/")) {
-					// Absolute path outside workspace - show warning and don't attempt to open
-					toast.warning("File is outside the workspace", {
-						description:
-							"Switch to 'External editor' in Settings to open this file",
-					});
-					return;
 				}
+				// Absolute paths outside workspace are passed through as-is.
+				// The file viewer supports loading external files via absolute paths.
 				addFileViewerPane(workspaceId, {
 					filePath,
 					line,
