@@ -1,5 +1,5 @@
 import type * as Monaco from "monaco-editor";
-import { basename } from "pathe";
+import { basename, relative } from "pathe";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { MosaicBranch } from "react-mosaic-component";
 import { useChangesStore } from "renderer/stores/changes";
@@ -265,6 +265,12 @@ export function FileViewerPane({
 	};
 
 	const fileName = basename(filePath) || filePath;
+	// Derive display path: relative for in-worktree files, absolute otherwise
+	const displayPath = (() => {
+		if (!worktreePath || !filePath.startsWith(worktreePath)) return filePath;
+		const rel = relative(worktreePath, filePath);
+		return rel.startsWith("..") ? filePath : rel;
+	})();
 	const hasRenderedMode = isMarkdownFile(filePath) || isImageFile(filePath);
 	const hasDiff = !!diffCategory;
 	const hasDraft = draftContentRef.current !== null;
@@ -285,7 +291,7 @@ export function FileViewerPane({
 					<div className="flex h-full w-full">
 						<FileViewerToolbar
 							fileName={fileName}
-							filePath={filePath}
+							filePath={displayPath}
 							isDirty={isDirty}
 							viewMode={viewMode}
 							isPinned={isPinned}
@@ -307,6 +313,7 @@ export function FileViewerPane({
 				<FileViewerContent
 					viewMode={viewMode}
 					filePath={filePath}
+					displayPath={displayPath}
 					isLoadingRaw={isLoadingRaw}
 					isLoadingImage={isLoadingImage}
 					isLoadingDiff={isLoadingDiff}

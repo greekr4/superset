@@ -1,5 +1,6 @@
 import Editor, { type OnMount } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
+import { basename } from "pathe";
 import {
 	type MutableRefObject,
 	type RefObject,
@@ -69,6 +70,8 @@ interface DiffData {
 interface FileViewerContentProps {
 	viewMode: FileViewerMode;
 	filePath: string;
+	/** Worktree-relative path for display/clipboard operations */
+	displayPath: string;
 	isLoadingRaw: boolean;
 	isLoadingImage?: boolean;
 	isLoadingDiff: boolean;
@@ -115,6 +118,7 @@ interface FileViewerContentProps {
 export function FileViewerContent({
 	viewMode,
 	filePath,
+	displayPath,
 	isLoadingRaw,
 	isLoadingImage,
 	isLoadingDiff,
@@ -169,7 +173,7 @@ export function FileViewerContent({
 			}
 			setIsDirty(editor.getValue() !== originalContentRef.current);
 			registerSaveAction(editor, onSaveRaw);
-			registerCopyPathLineAction(editor, filePath);
+			registerCopyPathLineAction(editor, displayPath);
 		},
 		[
 			onSaveRaw,
@@ -177,7 +181,7 @@ export function FileViewerContent({
 			originalContentRef,
 			draftContentRef,
 			setIsDirty,
-			filePath,
+			displayPath,
 		],
 	);
 
@@ -242,7 +246,7 @@ export function FileViewerContent({
 				}}
 				viewMode={diffViewMode}
 				hideUnchangedRegions={hideUnchangedRegions}
-				filePath={filePath}
+				filePath={displayPath}
 				editable={isDiffEditable}
 				onSave={isDiffEditable ? onSaveDiff : undefined}
 				onChange={isDiffEditable ? onDiffChange : undefined}
@@ -292,7 +296,7 @@ export function FileViewerContent({
 			<div className="flex items-center justify-center h-full overflow-auto p-4 bg-[#0d0d0d]">
 				<img
 					src={imageData.dataUrl}
-					alt={filePath.split("/").pop() || "Image"}
+					alt={basename(filePath) || "Image"}
 					className="max-w-full max-h-full object-contain"
 					style={{ imageRendering: "auto" }}
 				/>
@@ -360,7 +364,7 @@ export function FileViewerContent({
 	return (
 		<FileEditorContextMenu
 			editorRef={editorRef}
-			filePath={filePath}
+			filePath={displayPath}
 			onSplitHorizontal={onSplitHorizontal}
 			onSplitVertical={onSplitVertical}
 			onClosePane={onClosePane}
