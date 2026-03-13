@@ -59,8 +59,12 @@ function V2WorkspaceContent({
 	workspaceBranch: string;
 	projectName: string;
 }) {
+	const { workspaceId } = Route.useParams();
 	const healthQuery = workspaceTrpc.health.info.useQuery();
 	const githubUserQuery = workspaceTrpc.github.getUser.useQuery();
+	const gitStatusQuery = workspaceTrpc.workspace.gitStatus.useQuery({
+		id: workspaceId,
+	});
 
 	return (
 		<div className="flex h-full flex-col gap-6 overflow-y-auto p-6">
@@ -74,6 +78,7 @@ function V2WorkspaceContent({
 			<div className="space-y-4">
 				<Section title="health.info" query={healthQuery} />
 				<Section title="github.getUser" query={githubUserQuery} />
+				<Section title="workspace.gitStatus" query={gitStatusQuery} />
 			</div>
 		</div>
 	);
@@ -87,13 +92,13 @@ function Section({
 	query: {
 		data: unknown;
 		error: { message: string } | null;
-		isLoading: boolean;
+		isPending: boolean;
 	};
 }) {
 	return (
 		<div className="rounded-lg border border-border p-4">
 			<h2 className="mb-2 text-sm font-medium">{title}</h2>
-			{query.isLoading ? (
+			{query.isPending ? (
 				<p className="text-xs text-muted-foreground">Loading...</p>
 			) : query.error ? (
 				<pre className="whitespace-pre-wrap text-xs text-destructive">
