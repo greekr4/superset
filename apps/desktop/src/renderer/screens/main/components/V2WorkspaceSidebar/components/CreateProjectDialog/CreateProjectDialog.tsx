@@ -1,4 +1,3 @@
-import { useLiveQuery } from "@tanstack/react-db";
 import { Button } from "@superset/ui/button";
 import {
 	Dialog,
@@ -17,6 +16,7 @@ import {
 	SelectValue,
 } from "@superset/ui/select";
 import { toast } from "@superset/ui/sonner";
+import { useLiveQuery } from "@tanstack/react-db";
 import { useState } from "react";
 import { apiTrpcClient } from "renderer/lib/api-trpc-client";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
@@ -124,9 +124,7 @@ export function CreateProjectDialog({
 						</Button>
 						<Button
 							type="submit"
-							disabled={
-								!name.trim() || !githubRepositoryId || isSubmitting
-							}
+							disabled={!name.trim() || !githubRepositoryId || isSubmitting}
 						>
 							{isSubmitting ? "Creating..." : "Create"}
 						</Button>
