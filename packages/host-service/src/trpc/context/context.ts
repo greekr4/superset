@@ -8,7 +8,7 @@ export function createContextFactory(opts: {
 	credentials: CredentialProvider;
 	api: ApiClient | null;
 	db: HostDb;
-	deviceId?: string;
+	deviceClientId?: string;
 	deviceName?: string;
 }): () => Promise<HostServiceContext> {
 	return async () => ({
@@ -24,7 +24,7 @@ export function createContextFactory(opts: {
 		},
 		api: opts.api,
 		db: opts.db,
-		deviceId: opts.deviceId ?? null,
+		deviceClientId: opts.deviceClientId ?? null,
 		deviceName: opts.deviceName ?? null,
 	});
 }

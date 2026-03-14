@@ -12,8 +12,10 @@ export interface V2SidebarProject {
 	id: string;
 	name: string;
 	slug: string;
-	githubRepositoryId: string;
+	githubRepositoryId: string | null;
+	githubOwner: string | null;
 	createdAt: Date;
 	updatedAt: Date;
+	isCollapsed: boolean;
 	workspaces: V2SidebarWorkspace[];
 }

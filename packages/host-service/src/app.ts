@@ -16,7 +16,7 @@ export interface CreateAppOptions {
 	auth?: AuthProvider;
 	cloudApiUrl?: string;
 	dbPath?: string;
-	deviceId?: string;
+	deviceClientId?: string;
 	deviceName?: string;
 }
 
@@ -35,7 +35,7 @@ export function createApp(options?: CreateAppOptions) {
 		credentials,
 		api,
 		db,
-		deviceId: options?.deviceId,
+		deviceClientId: options?.deviceClientId,
 		deviceName: options?.deviceName,
 	});
 

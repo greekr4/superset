@@ -69,7 +69,7 @@ export const workspaceRouter = router({
 				".worktrees",
 				input.branch,
 			);
-			if (!ctx.deviceId || !ctx.deviceName) {
+			if (!ctx.deviceClientId || !ctx.deviceName) {
 				throw new TRPCError({
 					code: "PRECONDITION_FAILED",
 					message: "Host device metadata not configured",
@@ -84,7 +84,7 @@ export const workspaceRouter = router({
 			}
 
 			const device = await ctx.api.device.ensureV2Host.mutate({
-				clientId: ctx.deviceId,
+				clientId: ctx.deviceClientId,
 				name: ctx.deviceName,
 			});
 

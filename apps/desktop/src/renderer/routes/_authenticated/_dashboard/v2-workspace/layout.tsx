@@ -1,4 +1,5 @@
-import { eq, useLiveQuery } from "@tanstack/react-db";
+import { and, eq } from "@tanstack/db";
+import { useLiveQuery } from "@tanstack/react-db";
 import { createFileRoute, Outlet, useMatchRoute } from "@tanstack/react-router";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { getWorkspaceHostUrlForWorkspace } from "renderer/lib/v2-workspace-host";
@@ -31,14 +32,19 @@ function V2WorkspaceLayout() {
 				.where(({ v2Workspaces }) => eq(v2Workspaces.id, workspaceId ?? "")),
 		[collections, workspaceId],
 	);
+	const workspace = workspaces[0] ?? null;
 	const { data: currentDevices = [] } = useLiveQuery(
 		(q) =>
 			q
 				.from({ v2Devices: collections.v2Devices })
-				.where(({ v2Devices }) => eq(v2Devices.clientId, deviceInfo?.deviceId ?? "")),
-		[collections, deviceInfo?.deviceId],
+				.where(({ v2Devices }) =>
+					and(
+						eq(v2Devices.clientId, deviceInfo?.deviceId ?? ""),
+						eq(v2Devices.organizationId, workspace?.organizationId ?? ""),
+					),
+				),
+		[collections, deviceInfo?.deviceId, workspace?.organizationId],
 	);
-	const workspace = workspaces[0] ?? null;
 	const currentDevice = currentDevices[0] ?? null;
 	const localHostUrl = workspace
 		? (services.get(workspace.organizationId)?.url ?? null)

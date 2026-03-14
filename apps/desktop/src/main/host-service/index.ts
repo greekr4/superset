@@ -17,7 +17,7 @@ import {
 const authToken = process.env.AUTH_TOKEN;
 const cloudApiUrl = process.env.CLOUD_API_URL;
 const dbPath = process.env.HOST_DB_PATH;
-const deviceId = process.env.DEVICE_ID;
+const deviceClientId = process.env.DEVICE_CLIENT_ID;
 const deviceName = process.env.DEVICE_NAME;
 
 const auth =
@@ -28,7 +28,7 @@ const app = createApp({
 	auth,
 	cloudApiUrl,
 	dbPath,
-	deviceId,
+	deviceClientId,
 	deviceName,
 });
 

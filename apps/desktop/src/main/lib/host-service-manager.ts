@@ -72,7 +72,7 @@ class HostServiceManager {
 			...(process.env as Record<string, string>),
 			ELECTRON_RUN_AS_NODE: "1",
 			ORGANIZATION_ID: organizationId,
-			DEVICE_ID: getHashedDeviceId(),
+			DEVICE_CLIENT_ID: getHashedDeviceId(),
 			DEVICE_NAME: getDeviceName(),
 			HOST_DB_PATH: path.join(
 				SUPERSET_HOME_DIR,
