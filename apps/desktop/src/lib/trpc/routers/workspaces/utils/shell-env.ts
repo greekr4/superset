@@ -84,26 +84,7 @@ export async function getShellEnvironment(
 				fallback[key] = value;
 			}
 		}
-		// On macOS, Electron GUI apps get a minimal PATH that may exclude
-		// Homebrew and other user-installed tool directories. Augment with
-		// well-known locations so git and similar binaries can be found.
-		if (process.platform === "darwin") {
-			const commonPaths = [
-				"/opt/homebrew/bin",
-				"/opt/homebrew/sbin",
-				"/usr/local/bin",
-				"/usr/local/sbin",
-			];
-			const currentPath = fallback.PATH || "";
-			const missingPaths = commonPaths.filter(
-				(p) => !currentPath.includes(p),
-			);
-			if (missingPaths.length > 0) {
-				fallback.PATH = [...missingPaths, currentPath]
-					.filter(Boolean)
-					.join(":");
-			}
-		}
+		augmentPathForMacOS(fallback);
 		cachedEnv = fallback;
 		cacheTime = now;
 		isFallbackCache = true;
@@ -111,6 +92,29 @@ export async function getShellEnvironment(
 			? TIMEOUT_FALLBACK_CACHE_TTL_MS
 			: FALLBACK_CACHE_TTL_MS;
 		return { ...fallback };
+	}
+}
+
+const COMMON_MACOS_PATHS = [
+	"/opt/homebrew/bin",
+	"/opt/homebrew/sbin",
+	"/usr/local/bin",
+	"/usr/local/sbin",
+];
+
+/**
+ * On macOS, Electron GUI apps get a minimal PATH that may exclude
+ * Homebrew and other user-installed tool directories. Augment with
+ * well-known locations so git and similar binaries can be found.
+ */
+export function augmentPathForMacOS(env: Record<string, string>): void {
+	if (process.platform !== "darwin") return;
+	const currentPath = env.PATH || "";
+	const missingPaths = COMMON_MACOS_PATHS.filter(
+		(p) => !currentPath.includes(p),
+	);
+	if (missingPaths.length > 0) {
+		env.PATH = [...missingPaths, currentPath].filter(Boolean).join(":");
 	}
 }
 

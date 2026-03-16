@@ -1,6 +1,7 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import path from "node:path";
 import { app } from "electron";
+import { augmentPathForMacOS } from "../../lib/trpc/routers/workspaces/utils/shell-env";
 import { SUPERSET_HOME_DIR } from "./app-environment";
 
 type HostServiceStatus = "starting" | "running" | "crashed";
@@ -66,36 +67,9 @@ class HostServiceManager {
 		return this.instances.get(organizationId)?.status ?? null;
 	}
 
-	private async getEnvWithShellPath(): Promise<Record<string, string>> {
-		const env: Record<string, string> = {};
-		for (const [key, value] of Object.entries(process.env)) {
-			if (typeof value === "string") {
-				env[key] = value;
-			}
-		}
-		const commonPaths = [
-			"/opt/homebrew/bin",
-			"/opt/homebrew/sbin",
-			"/usr/local/bin",
-			"/usr/local/sbin",
-		];
-		const currentPath = env.PATH || "";
-		const missingPaths = commonPaths.filter(
-			(p) => !currentPath.includes(p),
-		);
-		if (missingPaths.length > 0) {
-			env.PATH = [...missingPaths, currentPath].filter(Boolean).join(":");
-		}
-		return env;
-	}
-
-	private async spawn(organizationId: string): Promise<number> {
-		const baseEnv =
-			process.platform === "darwin"
-				? await this.getEnvWithShellPath()
-				: (process.env as Record<string, string>);
+	private spawn(organizationId: string): Promise<number> {
 		const env: Record<string, string> = {
-			...baseEnv,
+			...(process.env as Record<string, string>),
 			ELECTRON_RUN_AS_NODE: "1",
 			ORGANIZATION_ID: organizationId,
 			HOST_DB_PATH: path.join(SUPERSET_HOME_DIR, "host.db"),
@@ -109,6 +83,7 @@ class HostServiceManager {
 		if (this.cloudApiUrl) {
 			env.CLOUD_API_URL = this.cloudApiUrl;
 		}
+		augmentPathForMacOS(env);
 
 		const child = spawn(process.execPath, [this.scriptPath], {
 			stdio: ["ignore", "pipe", "pipe"],
