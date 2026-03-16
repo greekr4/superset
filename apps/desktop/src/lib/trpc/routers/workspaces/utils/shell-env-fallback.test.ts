@@ -3,12 +3,10 @@ import { augmentPathForMacOS } from "./shell-env";
 
 describe("augmentPathForMacOS", () => {
 	test("adds common macOS paths when they are missing", () => {
-		if (process.platform !== "darwin") return;
-
 		const env: Record<string, string> = {
 			PATH: "/usr/bin:/bin:/usr/sbin:/sbin",
 		};
-		augmentPathForMacOS(env);
+		augmentPathForMacOS(env, "darwin");
 
 		expect(env.PATH).toContain("/opt/homebrew/bin");
 		expect(env.PATH).toContain("/opt/homebrew/sbin");
@@ -20,50 +18,60 @@ describe("augmentPathForMacOS", () => {
 	});
 
 	test("does not duplicate paths already present", () => {
-		if (process.platform !== "darwin") return;
-
 		const env: Record<string, string> = {
 			PATH: "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
 		};
-		augmentPathForMacOS(env);
+		augmentPathForMacOS(env, "darwin");
 
-		const parts = env.PATH.split("/opt/homebrew/bin");
-		expect(parts.length - 1).toBe(1);
+		const entries = env.PATH.split(":");
+		const homebrewBinCount = entries.filter(
+			(entry) => entry === "/opt/homebrew/bin",
+		).length;
+		expect(homebrewBinCount).toBe(1);
 	});
 
 	test("handles empty PATH", () => {
-		if (process.platform !== "darwin") return;
-
 		const env: Record<string, string> = { PATH: "" };
-		augmentPathForMacOS(env);
+		augmentPathForMacOS(env, "darwin");
 
 		expect(env.PATH).toContain("/opt/homebrew/bin");
 		expect(env.PATH).toContain("/usr/local/bin");
 	});
 
 	test("handles missing PATH key", () => {
-		if (process.platform !== "darwin") return;
-
 		const env: Record<string, string> = {};
-		augmentPathForMacOS(env);
+		augmentPathForMacOS(env, "darwin");
 
 		expect(env.PATH).toContain("/opt/homebrew/bin");
 		expect(env.PATH).toContain("/usr/local/bin");
 	});
 
-	test("augmented PATH allows finding git binary", () => {
-		if (process.platform !== "darwin") return;
+	test("matches PATH entries exactly instead of using substrings", () => {
+		const env: Record<string, string> = {
+			PATH: "/usr/local/bin-tools:/usr/bin:/bin",
+		};
+		augmentPathForMacOS(env, "darwin");
 
+		expect(env.PATH.split(":")).toContain("/usr/local/bin");
+	});
+
+	test("preserves existing PATH separators when nothing needs to be added", () => {
+		const originalPath =
+			"/opt/homebrew/bin::/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin:/usr/bin:";
+		const env: Record<string, string> = {
+			PATH: originalPath,
+		};
+		augmentPathForMacOS(env, "darwin");
+
+		expect(env.PATH).toBe(originalPath);
+	});
+
+	test("does nothing outside macOS", () => {
 		const env: Record<string, string> = {
 			PATH: "/usr/bin:/bin:/usr/sbin:/sbin",
 		};
-		augmentPathForMacOS(env);
+		augmentPathForMacOS(env, "linux");
 
-		const { execFileSync } = require("node:child_process");
-		const gitPath = execFileSync("which", ["git"], {
-			env: { ...process.env, PATH: env.PATH },
-			encoding: "utf8",
-		}).trim();
-		expect(gitPath.length).toBeGreaterThan(0);
+		expect(env.PATH).toBe("/usr/bin:/bin:/usr/sbin:/sbin");
 	});
 });

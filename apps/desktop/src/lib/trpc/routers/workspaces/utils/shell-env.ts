@@ -107,15 +107,18 @@ const COMMON_MACOS_PATHS = [
  * Homebrew and other user-installed tool directories. Augment with
  * well-known locations so git and similar binaries can be found.
  */
-export function augmentPathForMacOS(env: Record<string, string>): void {
-	if (process.platform !== "darwin") return;
-	const currentPath = env.PATH || "";
+export function augmentPathForMacOS(
+	env: Record<string, string>,
+	platform: NodeJS.Platform = process.platform,
+): void {
+	if (platform !== "darwin") return;
+	const currentPath = env.PATH ?? "";
+	const currentEntries = currentPath.split(":").filter(Boolean);
+	const pathEntries = new Set(currentEntries);
 	const missingPaths = COMMON_MACOS_PATHS.filter(
-		(p) => !currentPath.includes(p),
+		(path) => !pathEntries.has(path),
 	);
-	if (missingPaths.length > 0) {
-		env.PATH = [...missingPaths, currentPath].filter(Boolean).join(":");
-	}
+	env.PATH = [...missingPaths, currentPath].filter(Boolean).join(":");
 }
 
 /**
