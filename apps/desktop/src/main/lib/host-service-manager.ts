@@ -66,9 +66,36 @@ class HostServiceManager {
 		return this.instances.get(organizationId)?.status ?? null;
 	}
 
-	private spawn(organizationId: string): Promise<number> {
+	private async getEnvWithShellPath(): Promise<Record<string, string>> {
+		const env: Record<string, string> = {};
+		for (const [key, value] of Object.entries(process.env)) {
+			if (typeof value === "string") {
+				env[key] = value;
+			}
+		}
+		const commonPaths = [
+			"/opt/homebrew/bin",
+			"/opt/homebrew/sbin",
+			"/usr/local/bin",
+			"/usr/local/sbin",
+		];
+		const currentPath = env.PATH || "";
+		const missingPaths = commonPaths.filter(
+			(p) => !currentPath.includes(p),
+		);
+		if (missingPaths.length > 0) {
+			env.PATH = [...missingPaths, currentPath].filter(Boolean).join(":");
+		}
+		return env;
+	}
+
+	private async spawn(organizationId: string): Promise<number> {
+		const baseEnv =
+			process.platform === "darwin"
+				? await this.getEnvWithShellPath()
+				: (process.env as Record<string, string>);
 		const env: Record<string, string> = {
-			...(process.env as Record<string, string>),
+			...baseEnv,
 			ELECTRON_RUN_AS_NODE: "1",
 			ORGANIZATION_ID: organizationId,
 			HOST_DB_PATH: path.join(SUPERSET_HOME_DIR, "host.db"),

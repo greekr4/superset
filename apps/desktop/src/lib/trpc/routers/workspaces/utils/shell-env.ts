@@ -84,6 +84,26 @@ export async function getShellEnvironment(
 				fallback[key] = value;
 			}
 		}
+		// On macOS, Electron GUI apps get a minimal PATH that may exclude
+		// Homebrew and other user-installed tool directories. Augment with
+		// well-known locations so git and similar binaries can be found.
+		if (process.platform === "darwin") {
+			const commonPaths = [
+				"/opt/homebrew/bin",
+				"/opt/homebrew/sbin",
+				"/usr/local/bin",
+				"/usr/local/sbin",
+			];
+			const currentPath = fallback.PATH || "";
+			const missingPaths = commonPaths.filter(
+				(p) => !currentPath.includes(p),
+			);
+			if (missingPaths.length > 0) {
+				fallback.PATH = [...missingPaths, currentPath]
+					.filter(Boolean)
+					.join(":");
+			}
+		}
 		cachedEnv = fallback;
 		cacheTime = now;
 		isFallbackCache = true;
