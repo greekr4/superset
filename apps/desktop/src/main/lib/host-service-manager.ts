@@ -251,10 +251,7 @@ export class HostServiceManager {
 		}, 10_000);
 	}
 
-	private cancelPendingStart(
-		organizationId: string,
-		error: Error,
-	): void {
+	private cancelPendingStart(organizationId: string, error: Error): void {
 		const pendingStart = this.pendingStarts.get(organizationId);
 		if (!pendingStart) return;
 
