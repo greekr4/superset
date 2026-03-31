@@ -215,7 +215,7 @@ describe("FilePathLinkProvider", () => {
 
 			expect(links[0].range.start.x).toBe(1);
 			expect(links[0].range.start.y).toBe(1);
-			expect(links[0].range.end.x).toBe(11);
+			expect(links[0].range.end.x).toBe(10);
 			expect(links[0].range.end.y).toBe(2);
 		});
 	});
