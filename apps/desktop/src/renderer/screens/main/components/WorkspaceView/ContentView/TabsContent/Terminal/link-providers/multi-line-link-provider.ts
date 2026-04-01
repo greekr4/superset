@@ -67,8 +67,9 @@ export abstract class MultiLineLinkProvider implements ILinkProvider {
 				return charOffset;
 			}
 			if (cell.getWidth() === 0) continue;
-			if (charCount === charOffset) return col;
-			charCount++;
+			const codeUnitLength = Math.max(cell.getChars().length, 1);
+			if (charOffset < charCount + codeUnitLength) return col;
+			charCount += codeUnitLength;
 		}
 		return bufferLine.length;
 	}
@@ -228,7 +229,9 @@ export abstract class MultiLineLinkProvider implements ILinkProvider {
 			// For start: 0-based column → +1 for 1-based
 			// For end: 0-based exclusive end = 1-based inclusive end, so no +1
 			return {
-				x: line.leadingTrim + this.charOffsetToColumn(line.index, localOffset) + (isEnd ? 0 : 1),
+				x:
+					this.charOffsetToColumn(line.index, line.leadingTrim + localOffset) +
+					(isEnd ? 0 : 1),
 				y: line.lineNumber,
 			};
 		}
@@ -238,7 +241,11 @@ export abstract class MultiLineLinkProvider implements ILinkProvider {
 			return { x: 1, y: 1 };
 		}
 		return {
-			x: lastLine.leadingTrim + this.charOffsetToColumn(lastLine.index, lastLine.text.length) + (isEnd ? 0 : 1),
+			x:
+				this.charOffsetToColumn(
+					lastLine.index,
+					lastLine.leadingTrim + lastLine.text.length,
+				) + (isEnd ? 0 : 1),
 			y: lastLine.lineNumber,
 		};
 	}

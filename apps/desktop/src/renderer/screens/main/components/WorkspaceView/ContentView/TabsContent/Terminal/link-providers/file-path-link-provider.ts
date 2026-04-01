@@ -338,8 +338,9 @@ export class FilePathLinkProvider implements ILinkProvider {
 				return charOffset;
 			}
 			if (cell.getWidth() === 0) continue;
-			if (charCount === charOffset) return col;
-			charCount++;
+			const codeUnitLength = Math.max(cell.getChars().length, 1);
+			if (charOffset < charCount + codeUnitLength) return col;
+			charCount += codeUnitLength;
 		}
 		return bufferLine.length;
 	}
@@ -370,19 +371,29 @@ export class FilePathLinkProvider implements ILinkProvider {
 			startX = this.charOffsetToColumn(bufferLineNumber - 2, matchIndex) + 1;
 		} else {
 			startY = bufferLineNumber;
-			startX = this.charOffsetToColumn(bufferLineNumber - 1, matchIndex - currentLineStart) + 1;
+			startX =
+				this.charOffsetToColumn(
+					bufferLineNumber - 1,
+					matchIndex - currentLineStart,
+				) + 1;
 		}
 
 		// End positions: 0-based exclusive end = 1-based inclusive end, so no +1
 		if (endsInNextLine) {
 			endY = bufferLineNumber + 1;
-			endX = this.charOffsetToColumn(bufferLineNumber, matchEnd - currentLineEnd);
+			endX = this.charOffsetToColumn(
+				bufferLineNumber,
+				matchEnd - currentLineEnd,
+			);
 		} else if (matchEnd <= currentLineStart) {
 			endY = bufferLineNumber - 1;
 			endX = this.charOffsetToColumn(bufferLineNumber - 2, matchEnd);
 		} else {
 			endY = bufferLineNumber;
-			endX = this.charOffsetToColumn(bufferLineNumber - 1, matchEnd - currentLineStart);
+			endX = this.charOffsetToColumn(
+				bufferLineNumber - 1,
+				matchEnd - currentLineStart,
+			);
 		}
 
 		return {
